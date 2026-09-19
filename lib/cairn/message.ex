@@ -4,11 +4,7 @@ defmodule Cairn.Message do
   @enforce_keys [:from, :payload]
   defstruct [:from, :payload, :ref]
 
-  @type t :: %__MODULE__{
-          from: pid() | atom(),
-          payload: term(),
-          ref: term() | nil
-        }
+  @type t :: %__MODULE__{from: pid() | atom(), payload: term(), ref: term() | nil}
 
   @doc false
   @spec new(pid() | atom(), term(), term() | nil) :: t()

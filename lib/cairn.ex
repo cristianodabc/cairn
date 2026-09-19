@@ -1,16 +1,11 @@
 defmodule Cairn do
-  @moduledoc """
-  A simple message delivery system for Elixir processes.
-  """
+  @moduledoc false
 
   @type dest :: pid() | atom() | {:global, term()} | {:via, module(), term()}
 
   alias Cairn.Message
 
-  @doc """
-  Delivers `msg` to `dest`. Fire and forget, at-most-once in-flight,
-  no delivery guarantee beyond what `Kernel.send/2` provides.
-  """
+  @doc false
   @spec deliver(dest(), Message.t()) :: :ok
   def deliver(dest, %Message{} = msg) do
     dest |> resolve() |> send(msg)
