@@ -41,4 +41,12 @@ defmodule CairnTest do
       Cairn.deliver({:via, Registry, {__MODULE__.Reg, :nobody}}, msg)
     end
   end
+
+  test "raises on an unregistered global name" do
+    msg = Cairn.Message.new(self(), :hello)
+
+    assert_raise ArgumentError, ~r/unknown destination/, fn ->
+      Cairn.deliver({:global, :cairn_no_such_global}, msg)
+    end
+  end
 end

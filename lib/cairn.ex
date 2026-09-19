@@ -12,18 +12,9 @@ defmodule Cairn do
     :ok
   end
 
+  defp resolve(:undefined), do: raise(ArgumentError, "unknown destination")
   defp resolve(pid) when is_pid(pid), do: pid
   defp resolve(name) when is_atom(name), do: name
-  defp resolve({:global, name}), do: :global.whereis_name(name)
-
-  defp resolve({:via, mod, name}) do
-    case mod.whereis_name(name) do
-      :undefined ->
-        raise ArgumentError,
-              "unknown destination: #{inspect({:via, mod, name})}"
-
-      pid ->
-        pid
-    end
-  end
+  defp resolve({:global, name}), do: :global.whereis_name(name) |> resolve()
+  defp resolve({:via, mod, name}), do: name |> mod.whereis_name() |> resolve()
 end
