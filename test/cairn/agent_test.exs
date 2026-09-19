@@ -51,4 +51,14 @@ defmodule Cairn.AgentTest do
     assert {:noreply, %{count: 1}} =
              PingAgent.handle_message(msg, state)
   end
+
+  test "agent state is ordinary GenServer state" do
+    {:ok, pid} = PingAgent.start_link([])
+
+    assert :sys.get_state(pid) == %{count: 0}
+
+    Cairn.deliver(pid, Cairn.Message.new(self(), :increment))
+
+    assert :sys.get_state(pid) == %{count: 1}
+  end
 end

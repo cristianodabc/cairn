@@ -8,13 +8,19 @@ defmodule Cairn.Agent do
 
       @before_compile Cairn.Agent
 
+      @impl GenServer
       def init(arg), do: {:ok, arg}
+
       def handle_message(_msg, state), do: {:noreply, state}
 
       def start_link(arg), do: GenServer.start_link(__MODULE__, arg)
 
       def child_spec(arg) do
-        %{id: __MODULE__, start: {__MODULE__, :start_link, [arg]}}
+        %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [arg]},
+          type: :worker
+        }
       end
 
       @impl GenServer
