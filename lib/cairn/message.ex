@@ -14,4 +14,10 @@ defmodule Cairn.Message do
   def new(from, payload, ref \\ make_ref()) do
     %__MODULE__{from: from, payload: payload, ref: ref}
   end
+
+  @doc false
+  @spec reply(t(), payload()) :: t()
+  def reply(%__MODULE__{ref: ref}, payload) do
+    new(self(), payload, ref)
+  end
 end
