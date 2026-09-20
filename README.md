@@ -150,3 +150,6 @@ the next unreleased version, without the `v` prefix.
 
 The workflow updates `mix.exs`, README, and `CHANGELOG.md`; runs quality checks;
 publishes Hex; tags the commit; and creates the GitHub release.
+
+If the tag already exists but Hex does not have that version, the workflow
+publishes the existing tag instead of rebuilding from `main`.

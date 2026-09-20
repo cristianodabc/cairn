@@ -51,48 +51,65 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git fetch --tags origin
-          found=false
+          echo "RECOVER_EXISTING_TAG=false" >> "${GITHUB_ENV}"
+          echo "GITHUB_RELEASE_EXISTS=false" >> "${GITHUB_ENV}"
+
+          if mix hex.info cairn | grep -Eq "^  ${VERSION} "; then
+            echo "Hex package cairn ${VERSION} already exists"
+            echo "Version ${VERSION} has already been published to Hex. Choose the next version."
+            exit 1
+          fi
 
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists"
-            found=true
+            tag_version="$(git show "v${VERSION}:mix.exs" | sed -n 's/.*version: "\([^"]*\)".*/\1/p' | head -n 1)"
+
+            if [ "${tag_version}" != "${VERSION}" ]; then
+              echo "Tag v${VERSION} points to mix.exs version ${tag_version}, not ${VERSION}"
+              exit 1
+            fi
+
+            echo "RECOVER_EXISTING_TAG=true" >> "${GITHUB_ENV}"
           fi
 
           if gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             echo "GitHub release v${VERSION} already exists"
-            found=true
-          fi
+            echo "GITHUB_RELEASE_EXISTS=true" >> "${GITHUB_ENV}"
 
-          if mix hex.info cairn | grep -Eq "^  ${VERSION} "; then
-            echo "Hex package cairn ${VERSION} already exists"
-            found=true
-          fi
-
-          if [ "${found}" = "true" ]; then
-            echo "Version ${VERSION} has already been released. Choose the next version."
-            exit 1
+            if ! git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+              echo "GitHub release v${VERSION} exists, but tag v${VERSION} was not found"
+              exit 1
+            fi
           fi
 
       - name: Generate release notes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          previous_tag="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+          target_commitish="${GITHUB_SHA}"
+
+          if [ "${RECOVER_EXISTING_TAG}" = "true" ]; then
+            target_commitish="v${VERSION}"
+            previous_tag="$(git tag --sort=-creatordate --merged "v${VERSION}" --list 'v*' | grep -v "^v${VERSION}$" | head -n 1)"
+          else
+            previous_tag="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+          fi
 
           if [ -n "${previous_tag}" ]; then
             gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
               -f "tag_name=v${VERSION}" \
-              -f "target_commitish=${GITHUB_SHA}" \
+              -f "target_commitish=${target_commitish}" \
               -f "previous_tag_name=${previous_tag}" \
               --jq .body > RELEASE_NOTES.md
           else
             gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
               -f "tag_name=v${VERSION}" \
-              -f "target_commitish=${GITHUB_SHA}" \
+              -f "target_commitish=${target_commitish}" \
               --jq .body > RELEASE_NOTES.md
           fi
 
       - name: Update release files
+        if: env.RECOVER_EXISTING_TAG != 'true'
         run: |
           mix run -e '
           version = System.fetch_env!("VERSION")
@@ -126,6 +143,12 @@ jobs:
           File.write!("CHANGELOG.md", Regex.replace(~r/\A# Changelog\n\n/, changelog, "# Changelog\n\n#{entry}", global: false))
           '
 
+      - name: Checkout existing tag
+        if: env.RECOVER_EXISTING_TAG == 'true'
+        run: |
+          git checkout "v${VERSION}"
+          mix deps.get
+
       - name: Run quality checks
         run: mix quality
 
@@ -133,6 +156,7 @@ jobs:
         run: mix hex.build
 
       - name: Commit release files
+        if: env.RECOVER_EXISTING_TAG != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -152,11 +176,13 @@ jobs:
           mix hex.publish --yes
 
       - name: Tag release
+        if: env.RECOVER_EXISTING_TAG != 'true'
         run: |
           git tag -a "v${VERSION}" -m "v${VERSION}"
           git push origin "v${VERSION}"
 
       - name: Create GitHub release
+        if: env.GITHUB_RELEASE_EXISTS != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
