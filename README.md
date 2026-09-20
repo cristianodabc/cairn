@@ -17,26 +17,12 @@ iex -S mix
 Paste this into IEx:
 
 ```elixir
-defmodule Worker do
-  use Cairn.Server
+{:ok, pid} = Cairn.Function.start_link(fn value -> value * 2 end)
 
-  def handle_msg(%Cairn.Message{ref: ref, payload: {:run, fun}}, state) do
-    {:ok, _pid} = Cairn.Task.run(ref, fun)
-    {:noreply, state}
-  end
+msg = Cairn.dispatch(pid, 21)
 
-  def handle_task(ref, result, state) do
-    Cairn.deliver(state.reply_to, Cairn.Message.new(self(), result, ref))
-    {:noreply, state}
-  end
-end
-
-{:ok, pid} = Worker.start_link(%{reply_to: self()})
-
-msg = Cairn.Message.new(self(), {:run, fn -> 21 * 2 end})
-Cairn.deliver(pid, msg)
-
-{:ok, %Cairn.Message{payload: {:ok, 42}}} = Cairn.Await.message(msg.ref)
+{:ok, %Cairn.Message{payload: {:ok, 42}}} =
+  Cairn.Await.message(msg.ref)
 ```
 
 ## API
@@ -68,44 +54,31 @@ If your node can handle one million processes, `pids` can be one million process
 ## AI orchestration
 
 ```elixir
-defmodule Triage do
-  use Cairn.Server
+{:ok, classifier} =
+  Cairn.Function.start_link(fn text ->
+    MyApp.LLM.classify_ticket(text)
+  end)
 
-  def handle_msg(%Cairn.Message{ref: ref, payload: {:ticket, text}}, state) do
-    {:ok, _pid} = Cairn.Task.run(ref, fn -> MyApp.LLM.classify_ticket(text) end)
-    {:noreply, state}
-  end
+msg = Cairn.dispatch(classifier, "payment failed after upgrade")
 
-  def handle_task(ref, {:ok, %{team: team, summary: summary}}, state) do
-    Cairn.deliver(team, Cairn.Message.new(self(), {:ticket_summary, summary}, ref))
-    {:noreply, state}
-  end
-end
+{:ok, %Cairn.Message{payload: {:ok, %{team: team, summary: summary}}}} =
+  Cairn.Await.message(msg.ref)
 ```
 
 ```elixir
-defmodule Researcher do
-  use Cairn.Server
+{:ok, pids} =
+  Cairn.Function.start_many([
+    fn topic -> MyApp.Search.notes(topic) end,
+    fn topic -> MyApp.LLM.outline(topic) end,
+    fn topic -> MyApp.LLM.risks(topic) end
+  ])
 
-  def handle_msg(%Cairn.Message{ref: ref, payload: {:brief, topic}}, state) do
-    {:ok, _pid} = Cairn.Task.run(ref, fn -> MyApp.Search.notes(topic) end)
-    {:noreply, state}
-  end
+refs =
+  pids
+  |> Cairn.dispatch("elixir lightweight processes")
+  |> Enum.map(& &1.ref)
 
-  def handle_task(ref, {:ok, notes}, state) do
-    Cairn.deliver(:writer, Cairn.Message.new(self(), {:draft, notes}, ref))
-    {:noreply, state}
-  end
-end
-
-defmodule Writer do
-  use Cairn.Server
-
-  def handle_msg(%Cairn.Message{ref: ref, payload: {:draft, notes}}, state) do
-    {:ok, _pid} = Cairn.Task.run(ref, fn -> MyApp.LLM.write_brief(notes) end)
-    {:noreply, state}
-  end
-end
+{:ok, replies} = Cairn.Await.all(refs)
 ```
 
 ## Install
