@@ -10,6 +10,9 @@ defmodule Cairn.Function do
   @type child_arg :: fun() | {child_id(), fun()} | {child_id(), fun(), GenServer.options()}
   @type state :: %{fun: fun()}
 
+  @doc """
+  Builds a supervisor child spec for a function-backed server.
+  """
   @spec child_spec(child_arg()) :: Supervisor.child_spec()
   def child_spec(fun) when is_function(fun, 1) do
     child_spec({{__MODULE__, fun}, fun, []})
@@ -27,6 +30,9 @@ defmodule Cairn.Function do
     }
   end
 
+  @doc """
+  Starts many function-backed servers and returns their pids.
+  """
   @spec start_many([fun()]) :: {:ok, [pid()]} | {:error, term()}
   def start_many(funs) do
     funs

@@ -31,12 +31,12 @@ msg = Cairn.dispatch(pid, 21)
 
 ## API
 
-- `Cairn.Message`
-- `Cairn.deliver/2`
-- `Cairn.Server`
-- `Cairn.Function`
-- `Cairn.Task`
-- `Cairn.Await`
+- `Cairn.Message.new/3` and `Cairn.Message.reply/2`
+- `Cairn.deliver/2` and `Cairn.dispatch/2`
+- `Cairn.Server` with `handle_msg/2` and `handle_task/3`
+- `Cairn.Function.start_link/2`, `Cairn.Function.start_many/1`, and supervised child specs
+- `Cairn.Task.run/2`
+- `Cairn.Await.message/2`, `any/2`, `all/2`, `collect/2`, and `stream/2`
 
 ## Many Processes
 

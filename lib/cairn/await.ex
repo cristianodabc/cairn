@@ -14,6 +14,9 @@ defmodule Cairn.Await do
   @type ref_set :: MapSet.t(ref())
   @type message_stream :: Enumerable.t()
 
+  @doc """
+  Waits for one message matching a ref.
+  """
   @spec message(ref(), wait()) :: result()
   def message(ref, timeout \\ 5_000) do
     receive do
@@ -25,6 +28,9 @@ defmodule Cairn.Await do
     end
   end
 
+  @doc """
+  Waits for the first message matching any of the refs.
+  """
   @spec any(refs(), wait()) :: result()
   def any(refs, timeout \\ 5_000)
 
@@ -44,16 +50,25 @@ defmodule Cairn.Await do
     end
   end
 
+  @doc """
+  Waits for all refs and returns messages in ref order.
+  """
   @spec all(refs(), wait()) :: all_result()
   def all(refs, timeout \\ 5_000) do
     all(refs, MapSet.new(refs), %{}, deadline(timeout), [])
   end
 
+  @doc """
+  Waits for refs and returns partial results on timeout.
+  """
   @spec collect(refs(), wait()) :: collect_result()
   def collect(refs, timeout \\ 5_000) do
     collect(refs, MapSet.new(refs), %{}, deadline(timeout), [])
   end
 
+  @doc """
+  Streams messages as matching refs arrive.
+  """
   @spec stream(refs(), wait()) :: message_stream()
   def stream(refs, timeout \\ 5_000) do
     Stream.resource(
