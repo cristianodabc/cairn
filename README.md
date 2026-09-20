@@ -10,6 +10,7 @@ Small OTP helpers for message delivery and supervised task callbacks.
 
 ```sh
 cd cairn
+mix deps.get
 iex -S mix
 ```
 
@@ -44,23 +45,25 @@ Cairn.deliver(pid, msg)
 - `Cairn.deliver/2`
 - `Cairn.Server`
 - `Cairn.Function`
-- `Cairn.Group`
 - `Cairn.Task`
 - `Cairn.Await`
 
-## Groups
+## Many Processes
 
 ```elixir
-{:ok, group} =
+{:ok, pids} =
   1..1_000
   |> Enum.map(fn n -> fn input -> {n, input * n} end end)
-  |> Cairn.Group.start_link()
+  |> Cairn.Function.start_many()
 
-{:ok, replies} = Cairn.Group.call(group, 21)
+msgs = Cairn.dispatch(pids, 21)
+refs = Enum.map(msgs, & &1.ref)
+
+{:ok, replies} = Cairn.Await.all(refs)
 ```
 
 Use as many processes as your BEAM node can actually afford. Cairn does not add a pool or scheduler above OTP.
-If your node can handle one million processes, the group can be one million processes.
+If your node can handle one million processes, `pids` can be one million processes.
 
 ## AI orchestration
 
