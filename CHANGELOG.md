@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.7 - 2026-09-20
+
+- Reworked the README to explain Cairn's motivation and OTP boundaries.
+- Added blunt Q/A for common objections and tradeoffs.
+- Improved examples for fan-out/fan-in, supervision, server callbacks, human review, and AI orchestration.
+- Updated the package description for Hex.
+
+**Full Changelog**: https://github.com/cristianodabc/cairn/compare/v0.1.6...v0.1.7
+
 ## v0.1.6 - 2026-09-20
 
 - Added a runnable Livebook feature tour.

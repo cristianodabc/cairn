@@ -329,7 +329,7 @@ Enum.map(replies, & &1.payload)
 ```elixir
 def deps do
   [
-    {:cairn, "~> 0.1.6"}
+    {:cairn, "~> 0.1.7"}
   ]
 end
 ```
