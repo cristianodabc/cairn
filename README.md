@@ -1,21 +1,75 @@
 # Cairn
 
-**TODO: Add description**
+Small OTP helpers for message delivery and supervised task callbacks.
 
-## Installation
+## API
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `cairn` to your list of dependencies in `mix.exs`:
+- `Cairn.Message`
+- `Cairn.deliver/2`
+- `Cairn.Server`
+- `Cairn.Task`
+
+## Example
 
 ```elixir
-def deps do
-  [
-    {:cairn, "~> 0.1.0"}
-  ]
+defmodule Worker do
+  use Cairn.Server
+
+  def handle_msg(%Cairn.Message{ref: ref, payload: {:run, fun}}, state) do
+    {:ok, _pid} = Cairn.Task.run(ref, fun)
+    {:noreply, state}
+  end
+
+  def handle_task(ref, result, state) do
+    send(state.test_pid, {:done, ref, result})
+    {:noreply, state}
+  end
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/cairn>.
+## AI orchestration
 
+```elixir
+defmodule Triage do
+  use Cairn.Server
+
+  def handle_msg(%Cairn.Message{ref: ref, payload: {:ticket, text}}, state) do
+    {:ok, _pid} = Cairn.Task.run(ref, fn -> MyApp.LLM.classify_ticket(text) end)
+    {:noreply, state}
+  end
+
+  def handle_task(ref, {:ok, %{team: team, summary: summary}}, state) do
+    Cairn.deliver(team, Cairn.Message.new(self(), {:ticket_summary, summary}, ref))
+    {:noreply, state}
+  end
+end
+```
+
+```elixir
+defmodule Researcher do
+  use Cairn.Server
+
+  def handle_msg(%Cairn.Message{ref: ref, payload: {:brief, topic}}, state) do
+    {:ok, _pid} = Cairn.Task.run(ref, fn -> MyApp.Search.notes(topic) end)
+    {:noreply, state}
+  end
+
+  def handle_task(ref, {:ok, notes}, state) do
+    Cairn.deliver(:writer, Cairn.Message.new(self(), {:draft, notes}, ref))
+    {:noreply, state}
+  end
+end
+
+defmodule Writer do
+  use Cairn.Server
+
+  def handle_msg(%Cairn.Message{ref: ref, payload: {:draft, notes}}, state) do
+    {:ok, _pid} = Cairn.Task.run(ref, fn -> MyApp.LLM.write_brief(notes) end)
+    {:noreply, state}
+  end
+end
+```
+
+## Install
+
+Not published yet.
