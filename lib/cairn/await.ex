@@ -36,11 +36,11 @@ defmodule Cairn.Await do
   @spec all(refs(), wait()) :: all_result()
   def all(refs, timeout \\ 5_000) do
     deadline = deadline(timeout)
-    await_all(refs, %{}, deadline)
+    all(refs, %{}, deadline)
   end
 
-  @spec await_all(refs(), %{ref() => Message.t()}, integer() | :infinity) :: all_result()
-  defp await_all(refs, messages, deadline, stashed \\ []) do
+  @spec all(refs(), %{ref() => Message.t()}, integer() | :infinity) :: all_result()
+  defp all(refs, messages, deadline, stashed \\ []) do
     missing = Enum.reject(refs, &Map.has_key?(messages, &1))
 
     if missing == [] do
@@ -49,7 +49,7 @@ defmodule Cairn.Await do
     else
       case take(missing, deadline, stashed) do
         {:ok, %Message{ref: ref} = msg, stashed} ->
-          await_all(refs, Map.put(messages, ref, msg), deadline, stashed)
+          all(refs, Map.put(messages, ref, msg), deadline, stashed)
 
         {:error, :timeout, stashed} ->
           restore(Map.values(messages) ++ stashed)
