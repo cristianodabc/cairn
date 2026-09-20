@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish, without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  ELIXIR_VERSION: "1.19.5"
+  OTP_VERSION: "28.4.1"
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Check version
+        run: |
+          mix run -e '
+          version = Mix.Project.config()[:version]
+          expected = System.fetch_env!("VERSION")
+
+          if version != expected do
+            Mix.raise("mix.exs version #{version} does not match #{expected}")
+          end
+          '
+
+      - name: Check tag
+        run: |
+          git fetch --tags origin
+
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+            exit 1
+          fi
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Compile with warnings as errors
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test
+
+      - name: Build package
+        run: mix hex.build
+
+      - name: Publish package
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "${HEX_API_KEY}" ]; then
+            echo "HEX_API_KEY is not configured"
+            exit 1
+          fi
+
+          mix hex.publish --yes
+
+      - name: Tag release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes "Cairn v${VERSION}"
