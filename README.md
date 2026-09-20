@@ -134,5 +134,8 @@ end
 
 ## Release
 
-Set `HEX_API_KEY` in GitHub repository secrets. Bump `mix.exs`, then run the
-Release workflow with the same version, without the `v` prefix.
+Set `HEX_API_KEY` in GitHub repository secrets. Run the Release workflow with
+the next version, without the `v` prefix.
+
+The workflow updates `mix.exs`, README, and `CHANGELOG.md`; runs quality checks;
+publishes Hex; tags the commit; and creates the GitHub release.

@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 env:
   ELIXIR_VERSION: "1.19.5"
@@ -33,16 +34,17 @@ jobs:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
 
-      - name: Check version
+      - name: Check input
         run: |
-          mix run -e '
-          version = Mix.Project.config()[:version]
-          expected = System.fetch_env!("VERSION")
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "Run releases from main"
+            exit 1
+          fi
 
-          if version != expected do
-            Mix.raise("mix.exs version #{version} does not match #{expected}")
-          end
-          '
+          if ! echo "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "Version must be bare SemVer, for example 1.2.3"
+            exit 1
+          fi
 
       - name: Check tag
         run: |
@@ -53,11 +55,72 @@ jobs:
             exit 1
           fi
 
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous_tag="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+
+          if [ -n "${previous_tag}" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f "tag_name=v${VERSION}" \
+              -f "target_commitish=${GITHUB_SHA}" \
+              -f "previous_tag_name=${previous_tag}" \
+              --jq .body > RELEASE_NOTES.md
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f "tag_name=v${VERSION}" \
+              -f "target_commitish=${GITHUB_SHA}" \
+              --jq .body > RELEASE_NOTES.md
+          fi
+
+      - name: Update release files
+        run: |
+          mix run -e '
+          version = System.fetch_env!("VERSION")
+          date = Date.utc_today() |> Date.to_iso8601()
+          notes = File.read!("RELEASE_NOTES.md") |> String.trim()
+
+          update = fn file, pattern, replacement ->
+            body = File.read!(file)
+            next = Regex.replace(pattern, body, replacement, global: false)
+
+            if body == next do
+              Mix.raise("could not update #{file}")
+            end
+
+            File.write!(file, next)
+          end
+
+          update.("mix.exs", ~r/version: "[^"]+"/, ~s(version: "#{version}"))
+          update.("README.md", ~r/{:cairn, "~> [^"]+"}/, ~s({:cairn, "~> #{version}"}))
+
+          heading = "## v#{version} - #{date}"
+          entry = "#{heading}\n\n#{notes}\n\n"
+
+          changelog =
+            if File.exists?("CHANGELOG.md") do
+              File.read!("CHANGELOG.md")
+            else
+              "# Changelog\n\n"
+            end
+
+          File.write!("CHANGELOG.md", Regex.replace(~r/\A# Changelog\n\n/, changelog, "# Changelog\n\n#{entry}", global: false))
+          '
+
       - name: Run quality checks
         run: mix quality
 
       - name: Build package
         run: mix hex.build
+
+      - name: Commit release files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mix.exs README.md CHANGELOG.md
+          git commit -m "chore(release): v${VERSION}"
+          git push origin HEAD:main
 
       - name: Publish package
         env:
@@ -72,8 +135,6 @@ jobs:
 
       - name: Tag release
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "v${VERSION}" -m "v${VERSION}"
           git push origin "v${VERSION}"
 
@@ -83,4 +144,4 @@ jobs:
         run: |
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
-            --notes "Cairn v${VERSION}"
+            --notes-file RELEASE_NOTES.md
