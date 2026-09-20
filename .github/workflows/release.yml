@@ -46,12 +46,30 @@ jobs:
             exit 1
           fi
 
-      - name: Check tag
+      - name: Check existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git fetch --tags origin
+          found=false
 
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists"
+            found=true
+          fi
+
+          if gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "GitHub release v${VERSION} already exists"
+            found=true
+          fi
+
+          if mix hex.info cairn | grep -Eq "^  ${VERSION} "; then
+            echo "Hex package cairn ${VERSION} already exists"
+            found=true
+          fi
+
+          if [ "${found}" = "true" ]; then
+            echo "Version ${VERSION} has already been released. Choose the next version."
             exit 1
           fi
 
