@@ -93,12 +93,19 @@ pids
 |> Enum.each(fn msg -> IO.inspect(msg.payload) end)
 ```
 
+```elixir
+case Cairn.Await.collect(refs, 2_000) do
+  {:ok, replies} -> replies
+  {:partial, replies, missing} -> {replies, missing}
+end
+```
+
 ## Install
 
 ```elixir
 def deps do
   [
-    {:cairn, "~> 0.1.1"}
+    {:cairn, "~> 0.1.2"}
   ]
 end
 ```

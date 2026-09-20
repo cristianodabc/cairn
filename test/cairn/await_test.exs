@@ -70,6 +70,39 @@ defmodule Cairn.AwaitTest do
     assert Cairn.Await.all([]) == {:ok, []}
   end
 
+  test "collect returns all messages in ref order" do
+    first = Cairn.Message.new(self(), :first, :r1)
+    second = Cairn.Message.new(self(), :second, :r2)
+
+    send(self(), second)
+    send(self(), first)
+
+    assert Cairn.Await.collect([:r1, :r2]) == {:ok, [first, second]}
+  end
+
+  test "collect returns partial messages and missing refs" do
+    msg = Cairn.Message.new(self(), :done, :r1)
+
+    send(self(), msg)
+
+    assert Cairn.Await.collect([:r1, :missing], 0) == {:partial, [msg], [:missing]}
+  end
+
+  test "collect returns empty list for no refs" do
+    assert Cairn.Await.collect([]) == {:ok, []}
+  end
+
+  test "collect restores unrelated messages" do
+    other = Cairn.Message.new(self(), :other, :other)
+    msg = Cairn.Message.new(self(), :done, :r1)
+
+    send(self(), other)
+    send(self(), msg)
+
+    assert Cairn.Await.collect([:r1]) == {:ok, [msg]}
+    assert_receive ^other
+  end
+
   test "stream returns matching messages as they arrive" do
     first = Cairn.Message.new(self(), :first, :r1)
     second = Cairn.Message.new(self(), :second, :r2)

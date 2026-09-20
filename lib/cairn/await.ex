@@ -10,6 +10,7 @@ defmodule Cairn.Await do
   @type wait :: non_neg_integer() | :infinity
   @type result :: {:ok, Message.t()} | {:error, :timeout}
   @type all_result :: {:ok, [Message.t()]} | {:error, :timeout}
+  @type collect_result :: {:ok, [Message.t()]} | {:partial, [Message.t()], refs()}
   @type ref_set :: MapSet.t(ref())
   @type message_stream :: Enumerable.t()
 
@@ -48,6 +49,11 @@ defmodule Cairn.Await do
     all(refs, MapSet.new(refs), %{}, deadline(timeout), [])
   end
 
+  @spec collect(refs(), wait()) :: collect_result()
+  def collect(refs, timeout \\ 5_000) do
+    collect(refs, MapSet.new(refs), %{}, deadline(timeout), [])
+  end
+
   @spec stream(refs(), wait()) :: message_stream()
   def stream(refs, timeout \\ 5_000) do
     Stream.resource(
@@ -73,12 +79,36 @@ defmodule Cairn.Await do
     end
   end
 
+  @spec collect(refs(), ref_set(), %{ref() => Message.t()}, integer() | :infinity, [term()]) ::
+          collect_result()
+  defp collect(refs, remaining, messages, deadline, stashed) do
+    if MapSet.size(remaining) == 0 do
+      restore(stashed)
+      {:ok, ordered(refs, messages)}
+    else
+      case take(remaining, deadline, stashed) do
+        {:ok, %Message{ref: ref} = msg, stashed} ->
+          collect(
+            refs,
+            MapSet.delete(remaining, ref),
+            Map.put(messages, ref, msg),
+            deadline,
+            stashed
+          )
+
+        {:error, :timeout, stashed} ->
+          restore(stashed)
+          {:partial, ordered_present(refs, messages), missing(refs, messages)}
+      end
+    end
+  end
+
   @spec all(refs(), ref_set(), %{ref() => Message.t()}, integer() | :infinity, [term()]) ::
           all_result()
   defp all(refs, remaining, messages, deadline, stashed) do
     if MapSet.size(remaining) == 0 do
       restore(stashed)
-      {:ok, Enum.map(refs, &Map.fetch!(messages, &1))}
+      {:ok, ordered(refs, messages)}
     else
       case take(remaining, deadline, stashed) do
         {:ok, %Message{ref: ref} = msg, stashed} ->
@@ -115,6 +145,23 @@ defmodule Cairn.Await do
     messages
     |> Enum.reverse()
     |> Enum.each(&send(self(), &1))
+  end
+
+  @spec ordered(refs(), %{ref() => Message.t()}) :: [Message.t()]
+  defp ordered(refs, messages) do
+    Enum.map(refs, &Map.fetch!(messages, &1))
+  end
+
+  @spec ordered_present(refs(), %{ref() => Message.t()}) :: [Message.t()]
+  defp ordered_present(refs, messages) do
+    refs
+    |> Enum.filter(&Map.has_key?(messages, &1))
+    |> Enum.map(&Map.fetch!(messages, &1))
+  end
+
+  @spec missing(refs(), %{ref() => Message.t()}) :: refs()
+  defp missing(refs, messages) do
+    Enum.reject(refs, &Map.has_key?(messages, &1))
   end
 
   @spec deadline(wait()) :: integer() | :infinity
