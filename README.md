@@ -102,3 +102,8 @@ def deps do
   ]
 end
 ```
+
+## Release
+
+Set `HEX_API_KEY` in GitHub repository secrets. Bump `mix.exs`, then run the
+Release workflow with the same version, without the `v` prefix.
