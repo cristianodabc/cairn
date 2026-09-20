@@ -12,6 +12,8 @@ defmodule Cairn.MixProject do
       source_url: "https://github.com/cristianodabc/cairn",
       homepage_url: "https://github.com/cristianodabc/cairn",
       docs: docs(),
+      aliases: aliases(),
+      dialyzer: dialyzer(),
       deps: deps()
     ]
   end
@@ -24,7 +26,10 @@ defmodule Cairn.MixProject do
 
   defp deps do
     [
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -34,6 +39,7 @@ defmodule Cairn.MixProject do
 
   defp package do
     [
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => "https://github.com/cristianodabc/cairn"}
     ]
@@ -43,6 +49,30 @@ defmodule Cairn.MixProject do
     [
       main: "readme",
       extras: ["README.md"]
+    ]
+  end
+
+  defp dialyzer do
+    [
+      plt_add_apps: [:mix, :ex_unit],
+      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+    ]
+  end
+
+  defp aliases do
+    [
+      quality: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "xref graph --format cycles --label compile-connected --fail-above 0",
+        "deps.unlock --check-unused",
+        "credo --strict",
+        "deps.audit",
+        "dialyzer",
+        "cmd env MIX_ENV=test mix test",
+        "docs"
+      ],
+      precommit: ["quality"]
     ]
   end
 end

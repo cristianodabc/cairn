@@ -100,6 +100,8 @@ case Cairn.Await.collect(refs, 2_000) do
 end
 ```
 
+### Human in the loop
+
 Human decisions are just messages too:
 
 ```elixir

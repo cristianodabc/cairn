@@ -24,9 +24,16 @@ runs:
         path: |
           deps
           _build
+          priv/plts
         key: ${{ runner.os }}-mix-${{ inputs.otp-version }}-${{ inputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
         restore-keys: |
           ${{ runner.os }}-mix-${{ inputs.otp-version }}-${{ inputs.elixir-version }}-
+
+    - name: Install Hex and Rebar
+      shell: bash
+      run: |
+        mix local.hex --force
+        mix local.rebar --force
 
     - name: Install dependencies
       shell: bash
