@@ -100,12 +100,32 @@ case Cairn.Await.collect(refs, 2_000) do
 end
 ```
 
+Human decisions are just messages too:
+
+```elixir
+def handle_msg(%Cairn.Message{from: from, ref: ref, payload: {:draft, text}}, state) do
+  send(state.ui, {:review, self(), ref, text})
+  {:noreply, put_in(state.pending[ref], from)}
+end
+
+def handle_msg(%Cairn.Message{payload: {:approved, ref, edits}}, state) do
+  case pop_in(state.pending[ref]) do
+    {nil, state} ->
+      {:noreply, state}
+
+    {from, state} ->
+      Cairn.deliver(from, Cairn.Message.new(self(), {:ok, edits}, ref))
+      {:noreply, state}
+  end
+end
+```
+
 ## Install
 
 ```elixir
 def deps do
   [
-    {:cairn, "~> 0.1.2"}
+    {:cairn, "~> 0.1.3"}
   ]
 end
 ```
