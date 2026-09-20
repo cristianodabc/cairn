@@ -8,6 +8,7 @@ Small OTP helpers for message delivery and supervised task callbacks.
 - `Cairn.deliver/2`
 - `Cairn.Server`
 - `Cairn.Task`
+- `Cairn.Await`
 
 ## Example
 
@@ -25,6 +26,10 @@ defmodule Worker do
     {:noreply, state}
   end
 end
+
+ref = make_ref()
+Cairn.deliver(pid, Cairn.Message.new(self(), {:run, fun}, ref))
+{:ok, msg} = Cairn.Await.message(ref)
 ```
 
 ## AI orchestration
