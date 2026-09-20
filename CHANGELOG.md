@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.4 - 2026-09-20
+
+**Full Changelog**: https://github.com/cristianodabc/cairn/compare/v0.1.3...v0.1.4
+
 ## v0.1.3 - 2026-09-20
 
 - Added a human-in-the-loop README pattern using ordinary Cairn messages.

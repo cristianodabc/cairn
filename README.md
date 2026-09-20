@@ -138,7 +138,7 @@ end
 ```elixir
 def deps do
   [
-    {:cairn, "~> 0.1.3"}
+    {:cairn, "~> 0.1.4"}
   ]
 end
 ```
