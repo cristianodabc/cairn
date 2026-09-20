@@ -34,7 +34,7 @@ defmodule Cairn.MixProject do
   end
 
   defp description do
-    "Small OTP helpers for message delivery and supervised task callbacks."
+    "Small OTP library for correlated messaging and supervised task callbacks."
   end
 
   defp package do
