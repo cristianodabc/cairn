@@ -29,6 +29,12 @@ msg = Cairn.dispatch(pid, 21)
   Cairn.Await.message(msg.ref)
 ```
 
+## Livebook
+
+Run [`notebooks/cairn_features.livemd`](notebooks/cairn_features.livemd) for a
+tour of function workers, fan-out/fan-in, streaming, supervision, server
+callbacks, task callbacks, and human review.
+
 ## API
 
 - `Cairn.Message.new/3` and `Cairn.Message.reply/2`
@@ -37,6 +43,18 @@ msg = Cairn.dispatch(pid, 21)
 - `Cairn.Function.start_link/2`, `Cairn.Function.start_many/1`, and supervised child specs
 - `Cairn.Task.run/2`
 - `Cairn.Await.message/2`, `any/2`, `all/2`, `collect/2`, and `stream/2`
+
+## Architecture
+
+```text
+Cairn.dispatch/2 --> Cairn.Message --> process mailbox
+Cairn.deliver/2  --> Cairn.Message --> process mailbox
+
+Cairn.Function   --> Cairn.Server --> GenServer
+Cairn.Task.run/2 --> Task.Supervisor --> Cairn.Server.handle_task/3
+
+caller mailbox --> Cairn.Await --> replies matched by ref
+```
 
 ## Many Processes
 
@@ -67,6 +85,18 @@ Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 ## AI orchestration
+
+```text
+caller --dispatch(prompt)--> search
+       --dispatch(prompt)--> classify
+       --dispatch(prompt)--> draft
+
+search   --reply(ref)--> caller
+classify --reply(ref)--> caller
+draft    --reply(ref)--> caller
+
+caller --Await.any/all/collect/stream(refs)--> results
+```
 
 ```elixir
 {:ok, classifier} =
@@ -138,7 +168,7 @@ end
 ```elixir
 def deps do
   [
-    {:cairn, "~> 0.1.5"}
+    {:cairn, "~> 0.1.6"}
   ]
 end
 ```

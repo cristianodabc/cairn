@@ -4,7 +4,7 @@ defmodule Cairn.MixProject do
   def project do
     [
       app: :cairn,
-      version: "0.1.5",
+      version: "0.1.6",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       description: description(),
@@ -39,7 +39,7 @@ defmodule Cairn.MixProject do
 
   defp package do
     [
-      files: ~w(lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE),
+      files: ~w(lib notebooks .formatter.exs mix.exs README.md CHANGELOG.md LICENSE),
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => "https://github.com/cristianodabc/cairn"}
     ]
@@ -48,7 +48,7 @@ defmodule Cairn.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md"]
+      extras: ["README.md", "CHANGELOG.md", "notebooks/cairn_features.livemd"]
     ]
   end
 

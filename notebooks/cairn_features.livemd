@@ -1,0 +1,219 @@
+# Cairn Feature Tour
+
+```elixir
+cairn_dep =
+  if File.exists?("../mix.exs") do
+    {:cairn, path: ".."}
+  else
+    {:cairn, "~> 0.1.6"}
+  end
+
+Mix.install([cairn_dep])
+```
+
+## Message envelope
+
+Messages keep the sender, payload, and correlation ref together.
+
+```elixir
+echo =
+  spawn(fn ->
+    receive do
+      %Cairn.Message{} = msg ->
+        Cairn.deliver(msg.from, Cairn.Message.reply(msg, {:echo, msg.payload}))
+    end
+  end)
+
+msg = Cairn.Message.new(self(), "hello")
+
+:ok = Cairn.deliver(echo, msg)
+
+{:ok, %Cairn.Message{payload: {:echo, "hello"}}} =
+  Cairn.Await.message(msg.ref)
+```
+
+## Function workers
+
+Anonymous functions can run as OTP processes.
+
+```elixir
+{:ok, worker} =
+  Cairn.Function.start_link(fn text ->
+    %{tokens: String.split(text), chars: String.length(text)}
+  end)
+
+msg = Cairn.dispatch(worker, "ship small elixir tools")
+
+{:ok, %Cairn.Message{payload: {:ok, stats}}} =
+  Cairn.Await.message(msg.ref)
+
+stats
+```
+
+## Fan-out and fan-in
+
+Start many lightweight workers, dispatch once, and wait for all replies.
+
+```elixir
+{:ok, workers} =
+  Cairn.Function.start_many([
+    fn topic -> {:summary, "A short note about #{topic}"} end,
+    fn topic -> {:tags, String.split(topic)} end,
+    fn topic -> {:risk, :low} end
+  ])
+
+refs =
+  workers
+  |> Cairn.dispatch("otp orchestration")
+  |> Enum.map(& &1.ref)
+
+{:ok, replies} = Cairn.Await.all(refs)
+
+Enum.map(replies, & &1.payload)
+```
+
+## First useful answer
+
+Use `any/2` when multiple workers can answer and the first reply is enough.
+
+```elixir
+{:ok, workers} =
+  Cairn.Function.start_many([
+    fn question ->
+      Process.sleep(120)
+      {:slow_model, question}
+    end,
+    fn question ->
+      Process.sleep(20)
+      {:fast_model, question}
+    end
+  ])
+
+refs =
+  workers
+  |> Cairn.dispatch("classify this ticket")
+  |> Enum.map(& &1.ref)
+
+{:ok, fastest} = Cairn.Await.any(refs)
+
+fastest.payload
+```
+
+## Partial results
+
+Use `collect/2` when late replies should not block the result forever.
+
+```elixir
+fast = Cairn.Message.new(self(), {:ok, :fast}, :fast)
+send(self(), fast)
+
+Cairn.Await.collect([:fast, :missing], 10)
+```
+
+## Streaming
+
+Use `stream/2` to consume matching replies as they arrive.
+
+```elixir
+first = Cairn.Message.new(self(), {:chunk, 1}, :one)
+second = Cairn.Message.new(self(), {:chunk, 2}, :two)
+
+send(self(), second)
+send(self(), first)
+
+Cairn.Await.stream([:one, :two])
+|> Enum.map(& &1.payload)
+```
+
+## Supervision
+
+Function workers can be regular supervisor children.
+
+```elixir
+children = [
+  {Cairn.Function, {:classify, fn text -> {:classify, String.contains?(text, "?")} end}},
+  {Cairn.Function, {:extract, fn text -> {:extract, String.split(text)} end}}
+]
+
+{:ok, supervisor} = Supervisor.start_link(children, strategy: :one_for_one)
+
+workers =
+  supervisor
+  |> Supervisor.which_children()
+  |> Enum.map(fn {_id, pid, :worker, [Cairn.Function]} -> pid end)
+
+refs =
+  workers
+  |> Cairn.dispatch("should we release today?")
+  |> Enum.map(& &1.ref)
+
+{:ok, replies} = Cairn.Await.all(refs)
+
+Enum.map(replies, & &1.payload)
+```
+
+## Server callbacks
+
+`Cairn.Server` is a small `GenServer` layer for `Cairn.Message` and task replies.
+
+```elixir
+defmodule NotebookAgent do
+  use Cairn.Server
+
+  @impl GenServer
+  def init(_arg) do
+    {:ok, %{pending: %{}}}
+  end
+
+  @impl Cairn.Server
+  def handle_msg(%Cairn.Message{from: from, ref: ref, payload: {:draft, topic}}, state) do
+    {:ok, _pid} =
+      Cairn.Task.run(ref, fn ->
+        Process.sleep(50)
+        "Draft about #{topic}"
+      end)
+
+    {:noreply, put_in(state.pending[ref], from)}
+  end
+
+  @impl Cairn.Server
+  def handle_task(ref, result, state) do
+    {from, state} = pop_in(state.pending[ref])
+
+    if from do
+      Cairn.deliver(from, Cairn.Message.new(self(), result, ref))
+    end
+
+    {:noreply, state}
+  end
+end
+
+{:ok, agent} = NotebookAgent.start_link([])
+msg = Cairn.dispatch(agent, {:draft, "human review"})
+
+{:ok, %Cairn.Message{payload: {:ok, draft}}} =
+  Cairn.Await.message(msg.ref)
+
+draft
+```
+
+## Human review
+
+A human decision can be represented by a process that replies with the same ref.
+
+```elixir
+reviewer =
+  spawn(fn ->
+    receive do
+      %Cairn.Message{from: from, ref: ref, payload: {:review, draft}} ->
+        Cairn.deliver(from, Cairn.Message.new(self(), {:approved, draft}, ref))
+    end
+  end)
+
+msg = Cairn.dispatch(reviewer, {:review, "Release v0.1.6"})
+
+{:ok, %Cairn.Message{payload: decision}} =
+  Cairn.Await.message(msg.ref)
+
+decision
+```
