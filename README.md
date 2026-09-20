@@ -1,16 +1,19 @@
 # Cairn
 
+[![CI](https://github.com/cristianodabc/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/cristianodabc/cairn/actions/workflows/ci.yml)
+[![Hex.pm](https://img.shields.io/hexpm/v/cairn.svg)](https://hex.pm/packages/cairn)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/cristianodabc/cairn/blob/main/LICENSE)
+
 Small OTP helpers for message delivery and supervised task callbacks.
 
-## API
+## Try it
 
-- `Cairn.Message`
-- `Cairn.deliver/2`
-- `Cairn.Server`
-- `Cairn.Task`
-- `Cairn.Await`
+```sh
+cd cairn
+iex -S mix
+```
 
-## Example
+Paste this into IEx:
 
 ```elixir
 defmodule Worker do
@@ -22,15 +25,42 @@ defmodule Worker do
   end
 
   def handle_task(ref, result, state) do
-    send(state.test_pid, {:done, ref, result})
+    Cairn.deliver(state.reply_to, Cairn.Message.new(self(), result, ref))
     {:noreply, state}
   end
 end
 
-msg = Cairn.Message.new(self(), {:run, fun})
+{:ok, pid} = Worker.start_link(%{reply_to: self()})
+
+msg = Cairn.Message.new(self(), {:run, fn -> 21 * 2 end})
 Cairn.deliver(pid, msg)
-{:ok, reply} = Cairn.Await.message(msg.ref)
+
+{:ok, %Cairn.Message{payload: {:ok, 42}}} = Cairn.Await.message(msg.ref)
 ```
+
+## API
+
+- `Cairn.Message`
+- `Cairn.deliver/2`
+- `Cairn.Server`
+- `Cairn.Function`
+- `Cairn.Group`
+- `Cairn.Task`
+- `Cairn.Await`
+
+## Groups
+
+```elixir
+{:ok, group} =
+  1..1_000
+  |> Enum.map(fn n -> fn input -> {n, input * n} end end)
+  |> Cairn.Group.start_link()
+
+{:ok, replies} = Cairn.Group.call(group, 21)
+```
+
+Use as many processes as your BEAM node can actually afford. Cairn does not add a pool or scheduler above OTP.
+If your node can handle one million processes, the group can be one million processes.
 
 ## AI orchestration
 
@@ -77,4 +107,10 @@ end
 
 ## Install
 
-Not published yet.
+```elixir
+def deps do
+  [
+    {:cairn, "~> 0.1.0"}
+  ]
+end
+```

@@ -12,6 +12,20 @@ defmodule Cairn do
     :ok
   end
 
+  @doc false
+  @spec dispatch(dest() | [dest()], Message.payload()) :: Message.t() | [Message.t()]
+  def dispatch(dest, payload) when not is_list(dest) do
+    msg = Message.new(self(), payload)
+    :ok = deliver(dest, msg)
+    msg
+  end
+
+  def dispatch(dests, payload) do
+    Enum.map(dests, fn dest ->
+      dispatch(dest, payload)
+    end)
+  end
+
   defp resolve(:undefined), do: raise(ArgumentError, "unknown destination")
   defp resolve(pid) when is_pid(pid), do: pid
   defp resolve(name) when is_atom(name), do: name
