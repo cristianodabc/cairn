@@ -1,16 +1,12 @@
 defmodule Cairn.Function do
-  @moduledoc false
+  @moduledoc """
+  Function-backed Cairn servers.
+  """
 
   use Cairn.Server
 
   @type fun :: (Cairn.Message.payload() -> term())
-  @type waiting :: %{Cairn.Message.ref() => Cairn.Message.from()}
-  @type state :: %{fun: fun(), waiting: waiting()}
-
-  @spec start_link(fun()) :: GenServer.on_start()
-  def start_link(fun) when is_function(fun, 1) do
-    GenServer.start_link(__MODULE__, fun)
-  end
+  @type state :: %{fun: fun()}
 
   @spec start_many([fun()]) :: {:ok, [pid()]} | {:error, term()}
   def start_many(funs) do
@@ -20,20 +16,18 @@ defmodule Cairn.Function do
   end
 
   @impl GenServer
-  def init(fun) do
-    {:ok, %{fun: fun, waiting: %{}}}
+  def init(fun) when is_function(fun, 1) do
+    {:ok, %{fun: fun}}
   end
 
   @impl Cairn.Server
   def handle_msg(%Cairn.Message{from: from, payload: payload, ref: ref}, state) do
-    {:ok, _pid} = Cairn.Task.run(ref, fn -> state.fun.(payload) end)
-    {:noreply, put_in(state.waiting[ref], from)}
+    Cairn.deliver(from, Cairn.Message.new(self(), call(state.fun, payload), ref))
+    {:noreply, state}
   end
 
   @impl Cairn.Server
-  def handle_task(ref, result, state) do
-    {from, state} = pop_in(state.waiting[ref])
-    Cairn.deliver(from, Cairn.Message.new(self(), result, ref))
+  def handle_task(_ref, _result, state) do
     {:noreply, state}
   end
 
@@ -57,5 +51,16 @@ defmodule Cairn.Function do
 
   defp normalize(error) do
     error
+  end
+
+  @spec call(fun(), Cairn.Message.payload()) :: Cairn.Task.result()
+  defp call(fun, payload) do
+    {:ok, fun.(payload)}
+  rescue
+    exception ->
+      {:error, exception}
+  catch
+    kind, reason ->
+      {:error, {kind, reason}}
   end
 end

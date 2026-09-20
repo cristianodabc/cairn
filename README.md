@@ -6,6 +6,10 @@
 
 Small OTP helpers for message delivery and supervised task callbacks.
 
+Cairn tries not to become a framework for OTP. It is a thin layer for starting
+lightweight processes, passing messages, running supervised work, and waiting
+on refs.
+
 ## Try it
 
 ```sh

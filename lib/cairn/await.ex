@@ -1,5 +1,7 @@
 defmodule Cairn.Await do
-  @moduledoc false
+  @moduledoc """
+  Mailbox helpers for awaiting Cairn messages by ref.
+  """
 
   alias Cairn.Message
 
@@ -8,6 +10,7 @@ defmodule Cairn.Await do
   @type wait :: non_neg_integer() | :infinity
   @type result :: {:ok, Message.t()} | {:error, :timeout}
   @type all_result :: {:ok, [Message.t()]} | {:error, :timeout}
+  @type ref_set :: MapSet.t(ref())
 
   @spec message(ref(), wait()) :: result()
   def message(ref, timeout \\ 5_000) do
@@ -28,7 +31,7 @@ defmodule Cairn.Await do
   end
 
   def any(refs, timeout) do
-    case take(refs, deadline(timeout), []) do
+    case take(MapSet.new(refs), deadline(timeout), []) do
       {:ok, msg, stashed} ->
         restore(stashed)
         {:ok, msg}
@@ -41,21 +44,19 @@ defmodule Cairn.Await do
 
   @spec all(refs(), wait()) :: all_result()
   def all(refs, timeout \\ 5_000) do
-    deadline = deadline(timeout)
-    all(refs, %{}, deadline)
+    all(refs, MapSet.new(refs), %{}, deadline(timeout), [])
   end
 
-  @spec all(refs(), %{ref() => Message.t()}, integer() | :infinity) :: all_result()
-  defp all(refs, messages, deadline, stashed \\ []) do
-    missing = Enum.reject(refs, &Map.has_key?(messages, &1))
-
-    if missing == [] do
+  @spec all(refs(), ref_set(), %{ref() => Message.t()}, integer() | :infinity, [term()]) ::
+          all_result()
+  defp all(refs, remaining, messages, deadline, stashed) do
+    if MapSet.size(remaining) == 0 do
       restore(stashed)
       {:ok, Enum.map(refs, &Map.fetch!(messages, &1))}
     else
-      case take(missing, deadline, stashed) do
+      case take(remaining, deadline, stashed) do
         {:ok, %Message{ref: ref} = msg, stashed} ->
-          all(refs, Map.put(messages, ref, msg), deadline, stashed)
+          all(refs, MapSet.delete(remaining, ref), Map.put(messages, ref, msg), deadline, stashed)
 
         {:error, :timeout, stashed} ->
           restore(Map.values(messages) ++ stashed)
@@ -64,12 +65,12 @@ defmodule Cairn.Await do
     end
   end
 
-  @spec take(refs(), integer() | :infinity, [term()]) ::
+  @spec take(ref_set(), integer() | :infinity, [term()]) ::
           {:ok, Message.t(), [term()]} | {:error, :timeout, [term()]}
   defp take(refs, deadline, stashed) do
     receive do
       %Message{ref: ref} = msg ->
-        if Enum.member?(refs, ref) do
+        if MapSet.member?(refs, ref) do
           {:ok, msg, stashed}
         else
           take(refs, deadline, [msg | stashed])

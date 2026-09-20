@@ -47,6 +47,19 @@ defmodule Cairn.AwaitTest do
     assert Cairn.Await.all([:r1, :r2]) == {:ok, [first, second]}
   end
 
+  test "all handles a larger ref set" do
+    refs = Enum.to_list(1..1_000)
+
+    refs
+    |> Enum.reverse()
+    |> Enum.each(fn ref ->
+      send(self(), Cairn.Message.new(self(), ref, ref))
+    end)
+
+    assert {:ok, replies} = Cairn.Await.all(refs)
+    assert Enum.map(replies, & &1.payload) == refs
+  end
+
   test "all returns timeout when one message is missing" do
     send(self(), Cairn.Message.new(self(), :done, :r1))
 

@@ -1,5 +1,7 @@
 defmodule Cairn.Server do
-  @moduledoc false
+  @moduledoc """
+  Thin GenServer helper for Cairn messages and task callbacks.
+  """
 
   @task_supervisor_key {__MODULE__, :task_supervisor}
   @callback_key {__MODULE__, :callback}
@@ -33,9 +35,9 @@ defmodule Cairn.Server do
         {:noreply, state}
       end
 
-      @spec start_link(term()) :: GenServer.on_start()
-      def start_link(arg) do
-        GenServer.start_link(__MODULE__, arg)
+      @spec start_link(term(), GenServer.options()) :: GenServer.on_start()
+      def start_link(arg, opts \\ []) do
+        GenServer.start_link(__MODULE__, arg, opts)
       end
 
       @spec child_spec(term()) :: Supervisor.child_spec()
@@ -69,7 +71,7 @@ defmodule Cairn.Server do
                      handle_msg: 2,
                      handle_task: 3,
                      terminate: 2,
-                     start_link: 1,
+                     start_link: 2,
                      child_spec: 1
     end
   end

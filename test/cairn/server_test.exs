@@ -103,6 +103,17 @@ defmodule Cairn.ServerTest do
     assert_receive {:task_result, :error_ref, {:error, %RuntimeError{message: "boom"}}}
   end
 
+  test "routes thrown task values to handle_task/3" do
+    {:ok, pid} = TaskServer.start_link(self())
+    msg = Cairn.Message.new(self(), {:run, fn -> throw(:boom) end}, :throw_ref)
+
+    Cairn.deliver(pid, msg)
+
+    assert_receive {:task_started, :throw_ref, task_pid}
+    assert is_pid(task_pid)
+    assert_receive {:task_result, :throw_ref, {:error, {:throw, :boom}}}
+  end
+
   test "hard-killed tasks do not call handle_task/3" do
     {:ok, pid} = TaskServer.start_link(self())
 

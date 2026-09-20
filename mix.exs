@@ -11,6 +11,7 @@ defmodule Cairn.MixProject do
       package: package(),
       source_url: "https://github.com/cristianodabc/cairn",
       homepage_url: "https://github.com/cristianodabc/cairn",
+      docs: docs(),
       deps: deps()
     ]
   end
@@ -22,7 +23,9 @@ defmodule Cairn.MixProject do
   end
 
   defp deps do
-    []
+    [
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+    ]
   end
 
   defp description do
@@ -33,6 +36,13 @@ defmodule Cairn.MixProject do
     [
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => "https://github.com/cristianodabc/cairn"}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: ["README.md"]
     ]
   end
 end

@@ -1,12 +1,17 @@
 defmodule Cairn.Task do
-  @moduledoc false
+  @moduledoc """
+  Supervised task helper for use inside Cairn server callbacks.
+  """
 
   @type ref :: Cairn.Message.ref()
   @type value :: term()
-  @type reason :: Exception.t()
+  @type reason :: term()
   @type result :: {:ok, value()} | {:error, reason()}
   @type fun :: (-> value())
 
+  @doc """
+  Runs work and routes its result back to `handle_task/3`.
+  """
   @spec run(ref(), fun()) :: {:ok, pid()}
   def run(ref, fun) when is_function(fun, 0) do
     if Cairn.Server.__callback__?() do
@@ -32,5 +37,8 @@ defmodule Cairn.Task do
   rescue
     exception ->
       {:error, exception}
+  catch
+    kind, reason ->
+      {:error, {kind, reason}}
   end
 end
