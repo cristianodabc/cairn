@@ -4,7 +4,7 @@ defmodule Cairn.MixProject do
   def project do
     [
       app: :cairn,
-      version: "0.1.4",
+      version: "0.1.5",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       description: description(),
