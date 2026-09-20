@@ -11,6 +11,7 @@ defmodule Cairn.Await do
   @type result :: {:ok, Message.t()} | {:error, :timeout}
   @type all_result :: {:ok, [Message.t()]} | {:error, :timeout}
   @type ref_set :: MapSet.t(ref())
+  @type message_stream :: Enumerable.t()
 
   @spec message(ref(), wait()) :: result()
   def message(ref, timeout \\ 5_000) do
@@ -45,6 +46,31 @@ defmodule Cairn.Await do
   @spec all(refs(), wait()) :: all_result()
   def all(refs, timeout \\ 5_000) do
     all(refs, MapSet.new(refs), %{}, deadline(timeout), [])
+  end
+
+  @spec stream(refs(), wait()) :: message_stream()
+  def stream(refs, timeout \\ 5_000) do
+    Stream.resource(
+      fn -> {MapSet.new(refs), deadline(timeout), []} end,
+      &next/1,
+      fn {_refs, _deadline, stashed} -> restore(stashed) end
+    )
+  end
+
+  @spec next({ref_set(), integer() | :infinity, [term()]}) ::
+          {[Message.t()], {ref_set(), integer() | :infinity, [term()]}} | {:halt, term()}
+  defp next({refs, deadline, stashed}) do
+    if MapSet.size(refs) == 0 do
+      {:halt, {refs, deadline, stashed}}
+    else
+      case take(refs, deadline, stashed) do
+        {:ok, %Message{ref: ref} = msg, stashed} ->
+          {[msg], {MapSet.delete(refs, ref), deadline, stashed}}
+
+        {:error, :timeout, stashed} ->
+          {:halt, {refs, deadline, stashed}}
+      end
+    end
   end
 
   @spec all(refs(), ref_set(), %{ref() => Message.t()}, integer() | :infinity, [term()]) ::

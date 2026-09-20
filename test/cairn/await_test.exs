@@ -69,4 +69,33 @@ defmodule Cairn.AwaitTest do
   test "all returns empty list for no refs" do
     assert Cairn.Await.all([]) == {:ok, []}
   end
+
+  test "stream returns matching messages as they arrive" do
+    first = Cairn.Message.new(self(), :first, :r1)
+    second = Cairn.Message.new(self(), :second, :r2)
+
+    send(self(), second)
+    send(self(), first)
+
+    assert Cairn.Await.stream([:r1, :r2]) |> Enum.to_list() == [second, first]
+  end
+
+  test "stream stops on timeout with partial results" do
+    msg = Cairn.Message.new(self(), :done, :r1)
+
+    send(self(), msg)
+
+    assert Cairn.Await.stream([:r1, :missing], 0) |> Enum.to_list() == [msg]
+  end
+
+  test "stream restores unrelated messages" do
+    other = Cairn.Message.new(self(), :other, :other)
+    msg = Cairn.Message.new(self(), :done, :r1)
+
+    send(self(), other)
+    send(self(), msg)
+
+    assert Cairn.Await.stream([:r1]) |> Enum.to_list() == [msg]
+    assert_receive ^other
+  end
 end

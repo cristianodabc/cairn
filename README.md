@@ -85,12 +85,20 @@ refs =
 {:ok, replies} = Cairn.Await.all(refs)
 ```
 
+```elixir
+pids
+|> Cairn.dispatch("index my release notes")
+|> Enum.map(& &1.ref)
+|> Cairn.Await.stream()
+|> Enum.each(fn msg -> IO.inspect(msg.payload) end)
+```
+
 ## Install
 
 ```elixir
 def deps do
   [
-    {:cairn, "~> 0.1.0"}
+    {:cairn, "~> 0.1.1"}
   ]
 end
 ```
