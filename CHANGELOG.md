@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.6 - 2026-09-20
+
+- Added a runnable Livebook feature tour.
+
+**Full Changelog**: https://github.com/cristianodabc/cairn/compare/v0.1.5...v0.1.6
+
 ## v0.1.5 - 2026-09-20
 
 **Full Changelog**: https://github.com/cristianodabc/cairn/compare/v0.1.4...v0.1.5
