@@ -7,11 +7,12 @@ defmodule Cairn.MessageTest do
     assert_raise ArgumentError, fn -> struct!(Message, payload: :hi) end
   end
 
-  test "new/3 sets fields with ref defaulting to nil" do
+  test "new/2 sets fields with a ref" do
     msg = Message.new(:someone, :hi)
+
     assert msg.from == :someone
     assert msg.payload == :hi
-    assert msg.ref == nil
+    assert is_reference(msg.ref)
   end
 
   test "new/3 accepts a ref" do

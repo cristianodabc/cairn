@@ -27,9 +27,9 @@ defmodule Worker do
   end
 end
 
-ref = make_ref()
-Cairn.deliver(pid, Cairn.Message.new(self(), {:run, fun}, ref))
-{:ok, msg} = Cairn.Await.message(ref)
+msg = Cairn.Message.new(self(), {:run, fun})
+Cairn.deliver(pid, msg)
+{:ok, reply} = Cairn.Await.message(msg.ref)
 ```
 
 ## AI orchestration
