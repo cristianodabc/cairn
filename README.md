@@ -55,6 +55,17 @@ refs = Enum.map(msgs, & &1.ref)
 Use as many processes as your BEAM node can actually afford. Cairn does not add a pool or scheduler above OTP.
 If your node can handle one million processes, `pids` can be one million processes.
 
+## Supervision
+
+```elixir
+children = [
+  {Cairn.Function, {:classifier, fn text -> MyApp.LLM.classify(text) end}},
+  {Cairn.Function, {:retriever, fn query -> MyApp.Search.run(query) end}}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+```
+
 ## AI orchestration
 
 ```elixir

@@ -6,7 +6,26 @@ defmodule Cairn.Function do
   use Cairn.Server
 
   @type fun :: (Cairn.Message.payload() -> term())
+  @type child_id :: term()
+  @type child_arg :: fun() | {child_id(), fun()} | {child_id(), fun(), GenServer.options()}
   @type state :: %{fun: fun()}
+
+  @spec child_spec(child_arg()) :: Supervisor.child_spec()
+  def child_spec(fun) when is_function(fun, 1) do
+    child_spec({{__MODULE__, fun}, fun, []})
+  end
+
+  def child_spec({id, fun}) when is_function(fun, 1) do
+    child_spec({id, fun, []})
+  end
+
+  def child_spec({id, fun, opts}) when is_function(fun, 1) and is_list(opts) do
+    %{
+      id: id,
+      start: {__MODULE__, :start_link, [fun, opts]},
+      type: :worker
+    }
+  end
 
   @spec start_many([fun()]) :: {:ok, [pid()]} | {:error, term()}
   def start_many(funs) do
