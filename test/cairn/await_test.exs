@@ -17,4 +17,35 @@ defmodule Cairn.AwaitTest do
   test "returns timeout" do
     assert Cairn.Await.message(:missing, 0) == {:error, :timeout}
   end
+
+  test "any returns the first matching message" do
+    other = Cairn.Message.new(self(), :other, :other)
+    msg = Cairn.Message.new(self(), :done, :r2)
+
+    send(self(), other)
+    send(self(), msg)
+
+    assert Cairn.Await.any([:r1, :r2]) == {:ok, msg}
+    assert_receive ^other
+  end
+
+  test "any returns timeout" do
+    assert Cairn.Await.any([:missing], 0) == {:error, :timeout}
+  end
+
+  test "all returns messages in ref order" do
+    first = Cairn.Message.new(self(), :first, :r1)
+    second = Cairn.Message.new(self(), :second, :r2)
+
+    send(self(), second)
+    send(self(), first)
+
+    assert Cairn.Await.all([:r1, :r2]) == {:ok, [first, second]}
+  end
+
+  test "all returns timeout when one message is missing" do
+    send(self(), Cairn.Message.new(self(), :done, :r1))
+
+    assert Cairn.Await.all([:r1, :missing], 0) == {:error, :timeout}
+  end
 end
