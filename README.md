@@ -31,6 +31,8 @@ msg = Cairn.dispatch(pid, 21)
 
 ## Livebook
 
+[![Run in Livebook](https://livebook.dev/badge/v1/pink.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Fcristianodabc%2Fcairn%2Fblob%2Fmain%2Fnotebooks%2Fcairn_features.livemd)
+
 Run [`notebooks/cairn_features.livemd`](notebooks/cairn_features.livemd) for a
 tour of function workers, fan-out/fan-in, streaming, supervision, server
 callbacks, task callbacks, and human review.
