@@ -33,6 +33,10 @@ defmodule Cairn.AwaitTest do
     assert Cairn.Await.any([:missing], 0) == {:error, :timeout}
   end
 
+  test "any returns timeout for no refs" do
+    assert Cairn.Await.any([]) == {:error, :timeout}
+  end
+
   test "all returns messages in ref order" do
     first = Cairn.Message.new(self(), :first, :r1)
     second = Cairn.Message.new(self(), :second, :r2)
@@ -47,5 +51,9 @@ defmodule Cairn.AwaitTest do
     send(self(), Cairn.Message.new(self(), :done, :r1))
 
     assert Cairn.Await.all([:r1, :missing], 0) == {:error, :timeout}
+  end
+
+  test "all returns empty list for no refs" do
+    assert Cairn.Await.all([]) == {:ok, []}
   end
 end

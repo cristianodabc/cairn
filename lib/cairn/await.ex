@@ -21,7 +21,13 @@ defmodule Cairn.Await do
   end
 
   @spec any(refs(), wait()) :: result()
-  def any(refs, timeout \\ 5_000) do
+  def any(refs, timeout \\ 5_000)
+
+  def any([], _timeout) do
+    {:error, :timeout}
+  end
+
+  def any(refs, timeout) do
     case take(refs, deadline(timeout), []) do
       {:ok, msg, stashed} ->
         restore(stashed)
